@@ -1,9 +1,9 @@
 // Import required modules and functions
+require("dotenv").config();
 const { connectDB, saveChat } = require("./db");
 const express = require("express");
 const { Configuration, OpenAIApi } = require("openai");
 const cors = require("cors");
-require("dotenv").config();
 
 // Initialize OpenAI API client with the API key
 const configuration = new Configuration({
