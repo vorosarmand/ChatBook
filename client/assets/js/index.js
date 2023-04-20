@@ -3,7 +3,6 @@ const converter = new showdown.Converter();
 let promptToRetry = null;
 let uniqueIdToRetry = null;
 
-// Get HTML elements
 const submitButton = document.getElementById("submit-button");
 const regenerateResponseButton = document.getElementById(
   "regenerate-response-button"
@@ -14,7 +13,6 @@ const responseList = document.getElementById("response-list");
 let isGeneratingResponse = false;
 let loadInterval = null;
 
-// Handle 'Enter' key press in prompt input
 promptInput.addEventListener("keydown", function (event) {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -26,7 +24,6 @@ promptInput.addEventListener("keydown", function (event) {
   }
 });
 
-// Function to add responses to the chat window
 function addResponse(selfFlag, prompt) {
   const uniqueId = `id-${uuidv4()}`;
   const html = `
@@ -44,19 +41,16 @@ function addResponse(selfFlag, prompt) {
   return uniqueId;
 }
 
-// Function to set up retry response
 function setRetryResponse(prompt, uniqueId) {
   promptToRetry = prompt;
   uniqueIdToRetry = uniqueId;
   regenerateResponseButton.style.display = "block";
 }
 
-// Function to set error message for response
 function setErrorForResponse(element, message) {
   element.innerHTML = `<span class="error-message">${message}</span>`;
 }
 
-// Function to display loader during API call
 function loader(element) {
   element.innerHTML = "<span>Thinking</span>";
   loadInterval = setInterval(() => {
@@ -67,11 +61,25 @@ function loader(element) {
   }, 300);
 }
 
-// Function to get GPT result
+async function getAccessToken() {
+  try {
+    const response = await fetch("/api/auth/token");
+    if (response.ok) {
+      const { access_token } = await response.json();
+      console.log("Access token fetched:", access_token);
+      return access_token;
+    } else {
+      throw new Error("Failed to get access token");
+    }
+  } catch (error) {
+    console.error("Error getting access token:", error);
+  }
+  return null;
+}
+
 async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
   const prompt = _promptToRetry ?? promptInput.textContent;
 
-  // Return if generating a response or no prompt provided
   if (isGeneratingResponse || !prompt) {
     return;
   }
@@ -79,7 +87,6 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
   submitButton.classList.add("loading");
   promptInput.textContent = "";
 
-  // Add user's prompt to the chat window
   if (!_uniqueIdToRetry) {
     addResponse(true, `<div>${prompt}</div>`);
   }
@@ -87,22 +94,28 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
   const uniqueId = _uniqueIdToRetry ?? addResponse(false);
   const responseElement = document.getElementById(uniqueId);
 
-  // Display loader while waiting for the API response
   loader(responseElement);
   isGeneratingResponse = true;
 
   try {
     const model = "gpt-3.5-turbo";
 
-    // Generate a conversation ID if it doesn't exist
     if (!window.conversationId) {
       window.conversationId = uuidv4();
     }
 
-    // Make API call to get the GPT result
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      console.error("Access token is not available");
+      return;
+    }
+
     const response = await fetch(API_URL + "get-prompt-result", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         prompt,
         model,
@@ -110,7 +123,6 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
       }),
     });
 
-    // Handle non-OK responses
     if (!response.ok) {
       setRetryResponse(prompt, uniqueId);
       setErrorForResponse(
@@ -120,27 +132,22 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
       return;
     }
 
-    // Convert response text to HTML and update the chat window
     const responseText = await response.text();
     const responseHtml = converter.makeHtml(responseText);
     responseElement.innerHTML = responseHtml;
 
-    // Reset retry variables and hide the regenerate button
     promptToRetry = null;
     uniqueIdToRetry = null;
     regenerateResponseButton.style.display = "none";
 
-    // Scroll to the bottom of the chat window and highlight code blocks
     setTimeout(() => {
       responseList.scrollTop = responseList.scrollHeight;
       hljs.highlightAll();
     }, 10);
   } catch (err) {
-    // Handle errors and set up the response for retry
     setRetryResponse(prompt, uniqueId);
     setErrorForResponse(responseElement, `Error: ${err.message}`);
   } finally {
-    // Cleanup after response is received or error is handled
     isGeneratingResponse = false;
     submitButton.classList.remove("loading");
     clearInterval(loadInterval);

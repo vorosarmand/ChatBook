@@ -1,20 +1,15 @@
-// Import the required modules
 const { MongoClient } = require("mongodb");
 require("dotenv").config();
 
-// Retrieve the MongoDB URI from environment variables
 const uri = process.env.MONGODB_URI;
 
-// Create a new MongoDB client with necessary options
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
-// Declare a variable to store the database instance
 let db;
 
-// Define an asynchronous function to connect to the MongoDB database
 async function connectDB() {
   if (!db) {
     try {
@@ -27,7 +22,19 @@ async function connectDB() {
   }
 }
 
-// Define an asynchronous function to save a chat to the database
+async function createUser({ user_id, date_created, active }) {
+  try {
+    const usersCollection = db.collection("users");
+    await usersCollection.insertOne({
+      user_id,
+      date_created,
+      active,
+    });
+  } catch (error) {
+    console.error(`Error creating user: ${error}`);
+  }
+}
+
 async function saveChat({ chat_id, date_created, deleted_bool, content }) {
   try {
     const chatsCollection = db.collection("chats");
@@ -47,8 +54,8 @@ async function saveChat({ chat_id, date_created, deleted_bool, content }) {
   }
 }
 
-// Export the connectDB and saveChat functions for use in other modules
 module.exports = {
   connectDB,
   saveChat,
+  createUser,
 };
