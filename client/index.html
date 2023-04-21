@@ -2,17 +2,23 @@
 <html lang="en">
   <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuidv4.min.js"></script>
-    <title>ChatGPT Front-end</title>
+    <title>ChatBook</title>
     <link rel="stylesheet" href="./assets/css/highlight.min.css" />
     <link rel="stylesheet" href="./assets/css/index.css" />
     <link rel="icon" href="favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="pusher-app-key" content="<%= pusherAppKey %>" />
+    <meta name="pusher-cluster" content="<%= pusherCluster %>" />
     <meta
       name="description"
       content="Experience OpenAI API with this simple web application"
     />
   </head>
   <body>
+    <div id="room-input-container">
+      <input type="text" id="room-input" placeholder="Enter room ID" />
+      <button id="join-room-button">Join Room</button>
+    </div>
     <div id="response-list"></div>
     <div id="bottom-container">
       <div id="regenerate-button-container">
@@ -23,6 +29,7 @@
         <button id="submit-button"></button>
       </div>
     </div>
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
     <script src="./assets/js/highlight.min.js"></script>
     <script src="./assets/js/showdown.min.js"></script>
     <script src="./assets/js/index.js"></script>

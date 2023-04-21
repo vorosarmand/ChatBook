@@ -1,7 +1,37 @@
 const API_URL = "/";
 const converter = new showdown.Converter();
+const pusherAppKey = document.querySelector(
+  'meta[name="pusher-app-key"]'
+).content;
+const pusherCluster = document.querySelector(
+  'meta[name="pusher-cluster"]'
+).content;
+
+const pusher = new Pusher(pusherAppKey, {
+  cluster: pusherCluster,
+});
+
 let promptToRetry = null;
 let uniqueIdToRetry = null;
+
+const roomInput = document.getElementById("room-input");
+const joinRoomButton = document.getElementById("join-room-button");
+
+joinRoomButton.addEventListener("click", () => {
+  joinChatRoom(roomInput.value);
+});
+
+function joinChatRoom(roomId) {
+  if (!roomId) {
+    return;
+  }
+
+  window.conversationId = roomId;
+  subscribeToChatChannel(window.conversationId);
+
+  roomInput.disabled = true;
+  joinRoomButton.disabled = true;
+}
 
 const submitButton = document.getElementById("submit-button");
 const regenerateResponseButton = document.getElementById(
@@ -77,10 +107,25 @@ async function getAccessToken() {
   return null;
 }
 
+function subscribeToChatChannel(conversationId) {
+  const channel = pusher.subscribe(`chat-${conversationId}`);
+  channel.bind("new-message", (message) => {
+    if (message.role === "assistant") {
+      addResponse(false, converter.makeHtml(message.content));
+    } else if (message.role === "user") {
+      addUserMessage(converter.makeHtml(message.content));
+    }
+  });
+}
+
+function addUserMessage(prompt) {
+  addResponse(true, `<div>${prompt}</div>`);
+}
+
 async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
   const prompt = _promptToRetry ?? promptInput.textContent;
 
-  if (isGeneratingResponse || !prompt) {
+  if (isGeneratingResponse || !prompt || !window.conversationId) {
     return;
   }
 
@@ -88,7 +133,7 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
   promptInput.textContent = "";
 
   if (!_uniqueIdToRetry) {
-    addResponse(true, `<div>${prompt}</div>`);
+    addUserMessage(prompt);
   }
 
   const uniqueId = _uniqueIdToRetry ?? addResponse(false);
@@ -102,6 +147,7 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
 
     if (!window.conversationId) {
       window.conversationId = uuidv4();
+      subscribeToChatChannel(window.conversationId);
     }
 
     const accessToken = await getAccessToken();

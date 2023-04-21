@@ -6,6 +6,16 @@ const cors = require("cors");
 const { auth, requiresAuth } = require("express-openid-connect");
 const session = require("express-session");
 
+const Pusher = require("pusher");
+
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID,
+  key: process.env.PUSHER_KEY,
+  secret: process.env.PUSHER_SECRET,
+  cluster: process.env.PUSHER_CLUSTER,
+  useTLS: true,
+});
+
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -39,7 +49,16 @@ app.use(
   })
 );
 
-app.use("/", requiresAuth(), express.static(__dirname + "/client"));
+app.use(
+  "/",
+  requiresAuth(),
+  (req, res, next) => {
+    req.app.locals.pusherAppKey = process.env.PUSHER_KEY;
+    req.app.locals.pusherCluster = process.env.PUSHER_CLUSTER;
+    next();
+  },
+  express.static(__dirname + "/client")
+);
 
 app.get("/api/auth/token", requiresAuth(), (req, res) => {
   console.log("Access token on server:", req.oidc.idToken);
@@ -86,6 +105,11 @@ app.post("/get-prompt-result", requiresAuth(), async (req, res) => {
         timestamp: new Date(),
         ...message,
       })),
+    });
+
+    pusher.trigger(`chat-${conversationId}`, "new-message", {
+      role: "assistant",
+      content: botMessage,
     });
 
     return res.send(botMessage);
