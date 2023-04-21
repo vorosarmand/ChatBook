@@ -108,8 +108,10 @@ async function getAccessToken() {
 }
 
 function subscribeToChatChannel(conversationId) {
+  console.log("Subscribing to chat channel:", `chat-${conversationId}`);
   const channel = pusher.subscribe(`chat-${conversationId}`);
   channel.bind("new-message", (message) => {
+    console.log("New message received:", message);
     if (message.role === "assistant") {
       addResponse(false, converter.makeHtml(message.content));
     } else if (message.role === "user") {
