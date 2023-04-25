@@ -95,11 +95,10 @@ app.get(
       const chat = await chatsCollection.findOne({ chat_id: conversationId });
 
       if (chat) {
-        // Store the conversation history in the conversationHistories Map
         conversationHistories.set(conversationId, chat.content);
         res.status(200).send(chat.content);
       } else {
-        res.status(404).send({ error: "Chat not found" });
+        res.status(200).send([]);
       }
     } catch (error) {
       console.error(`Error fetching chat history: ${error}`);
@@ -125,7 +124,6 @@ app.post("/send-message", requiresAuth(), async (req, res) => {
     const messages = conversationHistories.get(conversationId) || [];
     messages.push({ role: "user", content: message });
 
-    // Trigger Pusher event for user message
     pusher.trigger(`chat-${conversationId}`, "new-message", {
       role: "user",
       content: message,
@@ -182,13 +180,11 @@ app.post("/api/get-prompt-result", requiresAuth(), async (req, res) => {
 
     messages.push({ role: "user", content: prompt });
 
-    // Trigger Pusher event for user message
     pusher.trigger(`chat-${conversationId}`, "new-message", {
       role: "user",
       content: prompt,
     });
 
-    // Create a new array with only 'role' and 'content' properties for each message
     const apiMessages = messages.map((message) => ({
       role: message.role,
       content: message.content,

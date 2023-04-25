@@ -150,12 +150,10 @@ function subscribeToChatChannel(conversationId) {
   console.log("Subscribing to chat channel:", `chat-${conversationId}`);
   const channel = pusher.subscribe(`chat-${conversationId}`);
 
-  // Update this event listener
   pusher.connection.bind("pusher:connection_established", () => {
     console.log("Pusher connected");
   });
 
-  // Add a listener for state_change
   pusher.connection.bind("state_change", (states) => {
     console.log("Pusher state changed:", states);
   });
