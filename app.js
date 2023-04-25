@@ -40,7 +40,6 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   next();
 });
-app.use(cors());
 app.use(express.json());
 app.use(
   session({
@@ -96,6 +95,8 @@ app.get(
       const chat = await chatsCollection.findOne({ chat_id: conversationId });
 
       if (chat) {
+        // Store the conversation history in the conversationHistories Map
+        conversationHistories.set(conversationId, chat.content);
         res.status(200).send(chat.content);
       } else {
         res.status(404).send({ error: "Chat not found" });
@@ -123,6 +124,13 @@ app.post("/send-message", requiresAuth(), async (req, res) => {
   try {
     const messages = conversationHistories.get(conversationId) || [];
     messages.push({ role: "user", content: message });
+
+    // Trigger Pusher event for user message
+    pusher.trigger(`chat-${conversationId}`, "new-message", {
+      role: "user",
+      content: message,
+    });
+
     conversationHistories.set(conversationId, messages);
     await saveChat({
       chat_id: conversationId,
@@ -136,13 +144,12 @@ app.post("/send-message", requiresAuth(), async (req, res) => {
     });
 
     const channel = `chat-${conversationId}`;
-    pusher.trigger(channel, "new-message", {
-      role: "user",
-      content: message,
+    pusher.trigger(`chat-${conversationId}`, "new-message", {
+      role: "assistant",
+      content: botMessage,
     });
-    console.log(
-      `Message sent and event triggered for conversation ID ${conversationId}`
-    );
+
+    console.log("Event triggered for conversation ID:", conversationId);
 
     res.status(200).send("Message sent and event triggered");
   } catch (error) {
@@ -175,9 +182,21 @@ app.post("/api/get-prompt-result", requiresAuth(), async (req, res) => {
 
     messages.push({ role: "user", content: prompt });
 
+    // Trigger Pusher event for user message
+    pusher.trigger(`chat-${conversationId}`, "new-message", {
+      role: "user",
+      content: prompt,
+    });
+
+    // Create a new array with only 'role' and 'content' properties for each message
+    const apiMessages = messages.map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
+
     const result = await openai.createChatCompletion({
       model: "gpt-3.5-turbo",
-      messages,
+      messages: apiMessages,
     });
     const botMessage = result.data.choices[0]?.message?.content;
 
