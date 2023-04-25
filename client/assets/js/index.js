@@ -1,4 +1,4 @@
-const API_URL = "/";
+const API_URL = "http://localhost:3001";
 const converter = new showdown.Converter();
 const pusherAppKey = document.querySelector(
   'meta[name="pusher-app-key"]'
@@ -21,16 +21,51 @@ joinRoomButton.addEventListener("click", () => {
   joinChatRoom(roomInput.value);
 });
 
-function joinChatRoom(roomId) {
+async function joinChatRoom(roomId) {
   if (!roomId) {
     return;
   }
 
   window.conversationId = roomId;
+
+  try {
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      console.error("Access token is not available");
+      return;
+    }
+
+    const response = await fetch(`/api/chat-history/${roomId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (response.ok) {
+      const chatHistory = await response.json();
+      displayChatHistory(chatHistory);
+    } else {
+      console.error("Error fetching chat history");
+    }
+  } catch (error) {
+    console.error("Error joining chat room:", error);
+  }
+
   subscribeToChatChannel(window.conversationId);
+  console.log("Joined chat room with ID:", roomId);
 
   roomInput.disabled = true;
   joinRoomButton.disabled = true;
+}
+
+function displayChatHistory(chatHistory) {
+  chatHistory.forEach((message) => {
+    if (message.role === "assistant") {
+      addResponse(false, converter.makeHtml(message.content));
+    } else {
+      addOtherUserMessage(converter.makeHtml(message.content));
+    }
+  });
 }
 
 const submitButton = document.getElementById("submit-button");
@@ -93,7 +128,7 @@ function loader(element) {
 
 async function getAccessToken() {
   try {
-    const response = await fetch("/api/auth/token");
+    const response = await fetch("/api/auth/token", { credentials: "include" });
     if (response.ok) {
       const { access_token } = await response.json();
       console.log("Access token fetched:", access_token);
@@ -107,15 +142,30 @@ async function getAccessToken() {
   return null;
 }
 
+function addOtherUserMessage(prompt) {
+  addResponse(false, `<div>${prompt}</div>`);
+}
+
 function subscribeToChatChannel(conversationId) {
   console.log("Subscribing to chat channel:", `chat-${conversationId}`);
   const channel = pusher.subscribe(`chat-${conversationId}`);
+
+  channel.bind("pusher:subscription_succeeded", () => {
+    console.log("Subscription to chat channel succeeded");
+  });
+
+  channel.bind("pusher:subscription_error", (statusCode) => {
+    console.error(
+      `Subscription to chat channel failed with status code: ${statusCode}`
+    );
+  });
+
   channel.bind("new-message", (message) => {
     console.log("New message received:", message);
     if (message.role === "assistant") {
       addResponse(false, converter.makeHtml(message.content));
     } else if (message.role === "user") {
-      addUserMessage(converter.makeHtml(message.content));
+      addOtherUserMessage(converter.makeHtml(message.content));
     }
   });
 }
@@ -138,67 +188,64 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
     addUserMessage(prompt);
   }
 
-  const uniqueId = _uniqueIdToRetry ?? addResponse(false);
-  const responseElement = document.getElementById(uniqueId);
+  if (!_uniqueIdToRetry) {
+    const uniqueId = addResponse(false);
+    const responseElement = document.getElementById(uniqueId);
 
-  loader(responseElement);
-  isGeneratingResponse = true;
+    loader(responseElement);
+    isGeneratingResponse = true;
 
-  try {
-    const model = "gpt-3.5-turbo";
+    try {
+      const model = "gpt-3.5-turbo";
 
-    if (!window.conversationId) {
-      window.conversationId = uuidv4();
-      subscribeToChatChannel(window.conversationId);
-    }
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        console.error("Access token is not available");
+        return;
+      }
 
-    const accessToken = await getAccessToken();
-    if (!accessToken) {
-      console.error("Access token is not available");
-      return;
-    }
+      const response = await fetch(API_URL + "/api/get-prompt-result", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          prompt,
+          model,
+          conversationId: window.conversationId,
+        }),
+      });
 
-    const response = await fetch(API_URL + "get-prompt-result", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        prompt,
-        model,
-        conversationId: window.conversationId,
-      }),
-    });
+      if (!response.ok) {
+        setRetryResponse(prompt, uniqueId);
+        setErrorForResponse(
+          responseElement,
+          `HTTP Error: ${await response.text()}`
+        );
+        return;
+      }
 
-    if (!response.ok) {
+      const responseText = await response.text();
+      const responseHtml = converter.makeHtml(responseText);
+      responseElement.innerHTML = responseHtml;
+
+      promptToRetry = null;
+      uniqueIdToRetry = null;
+      regenerateResponseButton.style.display = "none";
+
+      setTimeout(() => {
+        responseList.scrollTop = responseList.scrollHeight;
+        hljs.highlightAll();
+      }, 10);
+    } catch (err) {
       setRetryResponse(prompt, uniqueId);
-      setErrorForResponse(
-        responseElement,
-        `HTTP Error: ${await response.text()}`
-      );
-      return;
+      setErrorForResponse(responseElement, `Error: ${err.message}`);
+    } finally {
+      isGeneratingResponse = false;
+      submitButton.classList.remove("loading");
+      clearInterval(loadInterval);
     }
-
-    const responseText = await response.text();
-    const responseHtml = converter.makeHtml(responseText);
-    responseElement.innerHTML = responseHtml;
-
-    promptToRetry = null;
-    uniqueIdToRetry = null;
-    regenerateResponseButton.style.display = "none";
-
-    setTimeout(() => {
-      responseList.scrollTop = responseList.scrollHeight;
-      hljs.highlightAll();
-    }, 10);
-  } catch (err) {
-    setRetryResponse(prompt, uniqueId);
-    setErrorForResponse(responseElement, `Error: ${err.message}`);
-  } finally {
-    isGeneratingResponse = false;
-    submitButton.classList.remove("loading");
-    clearInterval(loadInterval);
   }
 }
 

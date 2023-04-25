@@ -8,23 +8,26 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
 });
 
-let db;
+let connectedDb;
 
 async function connectDB() {
-  if (!db) {
+  if (!connectedDb) {
     try {
       await client.connect();
-      db = client.db("cbdata");
+      connectedDb = client.db("cbdata");
       console.log("Connected to MongoDB");
+      return connectedDb;
     } catch (error) {
       console.error("Error connecting to MongoDB:", error);
     }
+  } else {
+    return connectedDb;
   }
 }
 
 async function createUser({ user_id, date_created, active }) {
   try {
-    const usersCollection = db.collection("users");
+    const usersCollection = connectedDb.collection("users");
     await usersCollection.insertOne({
       user_id,
       date_created,
@@ -37,7 +40,7 @@ async function createUser({ user_id, date_created, active }) {
 
 async function saveChat({ chat_id, date_created, deleted_bool, content }) {
   try {
-    const chatsCollection = db.collection("chats");
+    const chatsCollection = connectedDb.collection("chats");
     await chatsCollection.updateOne(
       { chat_id },
       {
@@ -58,4 +61,5 @@ module.exports = {
   connectDB,
   saveChat,
   createUser,
+  getDb: () => connectedDb,
 };

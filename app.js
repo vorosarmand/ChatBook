@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { connectDB, saveChat } = require("./db");
+const { connectDB, saveChat, getDb } = require("./db");
 const express = require("express");
 const { Configuration, OpenAIApi } = require("openai");
 const cors = require("cors");
@@ -26,6 +26,20 @@ const conversationHistories = new Map();
 const port = process.env.PORT || 3001;
 
 const app = express();
+const corsOptions = {
+  origin: "*",
+  optionsSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  next();
+});
 app.use(cors());
 app.use(express.json());
 app.use(
@@ -65,7 +79,79 @@ app.get("/api/auth/token", requiresAuth(), (req, res) => {
   res.send({ access_token: req.oidc.idToken });
 });
 
-app.post("/get-prompt-result", requiresAuth(), async (req, res) => {
+app.get(
+  "/api/chat-history/:conversationId",
+  requiresAuth(),
+  async (req, res) => {
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res
+        .status(400)
+        .send({ error: "Conversation ID is missing in the request" });
+    }
+
+    try {
+      const chatsCollection = getDb().collection("chats");
+      const chat = await chatsCollection.findOne({ chat_id: conversationId });
+
+      if (chat) {
+        res.status(200).send(chat.content);
+      } else {
+        res.status(404).send({ error: "Chat not found" });
+      }
+    } catch (error) {
+      console.error(`Error fetching chat history: ${error}`);
+      res.status(500).send("Error fetching chat history");
+    }
+  }
+);
+
+app.post("/send-message", requiresAuth(), async (req, res) => {
+  const { message, conversationId } = req.body;
+  req.body = JSON.parse(JSON.stringify(req.body));
+
+  if (!message) {
+    return res.status(400).send({ error: "Message is missing in the request" });
+  }
+  if (!conversationId) {
+    return res
+      .status(400)
+      .send({ error: "Conversation ID is missing in the request" });
+  }
+
+  try {
+    const messages = conversationHistories.get(conversationId) || [];
+    messages.push({ role: "user", content: message });
+    conversationHistories.set(conversationId, messages);
+    await saveChat({
+      chat_id: conversationId,
+      date_created: new Date(),
+      deleted_bool: false,
+      content: messages.map((message, index) => ({
+        index: index + 1,
+        timestamp: new Date(),
+        ...message,
+      })),
+    });
+
+    const channel = `chat-${conversationId}`;
+    pusher.trigger(channel, "new-message", {
+      role: "user",
+      content: message,
+    });
+    console.log(
+      `Message sent and event triggered for conversation ID ${conversationId}`
+    );
+
+    res.status(200).send("Message sent and event triggered");
+  } catch (error) {
+    console.error(`Error sending message: ${error}`);
+    res.status(500).send("Error sending message");
+  }
+});
+
+app.post("/api/get-prompt-result", requiresAuth(), async (req, res) => {
   const { prompt, conversationId } = req.body;
 
   if (!prompt) {
@@ -106,7 +192,7 @@ app.post("/get-prompt-result", requiresAuth(), async (req, res) => {
         ...message,
       })),
     });
-
+    console.log("Emitting new-message event on server-side");
     pusher.trigger(`chat-${conversationId}`, "new-message", {
       role: "assistant",
       content: botMessage,
@@ -122,7 +208,7 @@ app.post("/get-prompt-result", requiresAuth(), async (req, res) => {
 
 async function startServer() {
   try {
-    await connectDB();
+    const db = await connectDB();
     console.log("Connected to the database");
     app.listen(port, () => console.log(`Listening on port ${port}`));
   } catch (error) {
