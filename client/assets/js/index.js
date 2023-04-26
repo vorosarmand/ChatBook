@@ -44,6 +44,8 @@ async function joinChatRoom(roomId) {
     if (response.ok) {
       const chatHistory = await response.json();
       displayChatHistory(chatHistory);
+      // Save user ID
+      window.userId = chatHistory.userId;
     } else {
       console.error("Error fetching chat history");
     }
