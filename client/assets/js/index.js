@@ -196,68 +196,57 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
   submitButton.classList.add("loading");
   promptInput.textContent = "";
 
-  if (!_uniqueIdToRetry) {
-    addUserMessage(prompt);
-  }
+  const uniqueId = addResponse(false);
+  const responseElement = document.getElementById(uniqueId);
 
-  if (!_uniqueIdToRetry) {
-    const uniqueId = addResponse(false);
-    const responseElement = document.getElementById(uniqueId);
+  loader(responseElement);
+  isGeneratingResponse = true;
 
-    loader(responseElement);
-    isGeneratingResponse = true;
+  try {
+    const model = "gpt-3.5-turbo";
 
-    try {
-      const model = "gpt-3.5-turbo";
-
-      const accessToken = await getAccessToken();
-      if (!accessToken) {
-        console.error("Access token is not available");
-        return;
-      }
-
-      const response = await fetch(API_URL + "/api/get-prompt-result", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          prompt,
-          model,
-          conversationId: window.conversationId,
-        }),
-      });
-
-      if (!response.ok) {
-        setRetryResponse(prompt, uniqueId);
-        setErrorForResponse(
-          responseElement,
-          `HTTP Error: ${await response.text()}`
-        );
-        return;
-      }
-
-      const responseText = await response.text();
-      const responseHtml = converter.makeHtml(responseText);
-      responseElement.innerHTML = responseHtml;
-
-      promptToRetry = null;
-      uniqueIdToRetry = null;
-      regenerateResponseButton.style.display = "none";
-
-      setTimeout(() => {
-        responseList.scrollTop = responseList.scrollHeight;
-        hljs.highlightAll();
-      }, 10);
-    } catch (err) {
-      setRetryResponse(prompt, uniqueId);
-      setErrorForResponse(responseElement, `Error: ${err.message}`);
-    } finally {
-      isGeneratingResponse = false;
-      submitButton.classList.remove("loading");
-      clearInterval(loadInterval);
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      console.error("Access token is not available");
+      return;
     }
+
+    const response = await fetch(API_URL + "/api/get-prompt-result", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        prompt,
+        model,
+        conversationId: window.conversationId,
+      }),
+    });
+
+    if (!response.ok) {
+      setRetryResponse(prompt, uniqueId);
+      setErrorForResponse(
+        responseElement,
+        `HTTP Error: ${await response.text()}`
+      );
+      return;
+    }
+
+    const result = await response.json();
+    const generatedResponse = converter.makeHtml(result.choices[0].text.trim());
+    responseElement.innerHTML = generatedResponse;
+
+    promptToRetry = null;
+    uniqueIdToRetry = null;
+    regenerateResponseButton.style.display = "none";
+  } catch (err) {
+    setRetryResponse(prompt, uniqueId);
+    setErrorForResponse(responseElement, `Error: ${err.message}`);
+  } finally {
+    isGeneratingResponse = false;
+    submitButton.classList.remove("loading");
+    clearInterval(loadInterval);
   }
 }
 
