@@ -203,7 +203,7 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
   isGeneratingResponse = true;
 
   try {
-    const model = "gpt-3.5-turbo";
+    const model = "gpt-4";
 
     const accessToken = await getAccessToken();
     if (!accessToken) {

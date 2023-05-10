@@ -191,7 +191,7 @@ app.post("/api/get-prompt-result", requiresAuth(), async (req, res) => {
     }));
 
     const result = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4",
       messages: apiMessages,
     });
     const botMessage = result.data.choices[0]?.message?.content;
