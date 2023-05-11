@@ -93,6 +93,7 @@ const setupMessageRoutes = (app) => {
       const botMessage = result.data.choices[0]?.message?.content;
 
       messages.push({ role: "assistant", content: botMessage });
+
       await saveChat({
         chat_id: conversationId,
         date_created: new Date(),
