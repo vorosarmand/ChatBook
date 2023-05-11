@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:3001";
+const API_URL = "http://localhost:3000";
 const converter = new showdown.Converter();
 const pusherAppKey = document.querySelector(
   'meta[name="pusher-app-key"]'
@@ -195,6 +195,9 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
 
   submitButton.classList.add("loading");
   promptInput.textContent = "";
+
+  // Add the user's message to the display before the bot's response
+  addUserMessage(prompt);
 
   const uniqueId = addResponse(false);
   const responseElement = document.getElementById(uniqueId);

@@ -47,8 +47,8 @@ async function saveChat({ chat_id, date_created, deleted_bool, content }) {
         $set: {
           date_created,
           deleted_bool,
-          content,
         },
+        $push: { content: { $each: content } },
       },
       { upsert: true }
     );
