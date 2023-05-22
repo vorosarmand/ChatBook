@@ -1,9 +1,10 @@
-const express = require("express");
-const cors = require("cors");
-const { requiresAuth } = require("express-openid-connect");
-const session = require("express-session");
+import { json } from "express";
+import cors from "cors";
+import pkg from "express-openid-connect";
+const { requiresAuth } = pkg;
+import session from "express-session";
 
-const setupMiddleware = (app) => {
+export const setupMiddleware = (app) => {
   const corsOptions = {
     origin: "*",
     optionsSuccessStatus: 200,
@@ -22,7 +23,7 @@ const setupMiddleware = (app) => {
     );
     next();
   });
-  app.use(express.json());
+  app.use(json());
   app.use(
     session({
       secret: process.env.SESSION_SECRET,
@@ -42,8 +43,4 @@ const setupMiddleware = (app) => {
     },
     express.static(__dirname + "/client")
   );
-};
-
-module.exports = {
-  setupMiddleware,
 };

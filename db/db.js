@@ -1,5 +1,5 @@
-const { MongoClient } = require("mongodb");
-require("dotenv").config();
+import { MongoClient } from "mongodb";
+//require("dotenv").config();
 
 const uri = process.env.MONGODB_URI;
 
@@ -10,7 +10,7 @@ const client = new MongoClient(uri, {
 
 let connectedDb;
 
-async function connectDB() {
+export async function connectDB() {
   if (!connectedDb) {
     try {
       await client.connect();
@@ -25,7 +25,7 @@ async function connectDB() {
   }
 }
 
-async function createUser({ user_id, date_created, active }) {
+export async function createUser({ user_id, date_created, active }) {
   try {
     const usersCollection = connectedDb.collection("users");
     await usersCollection.insertOne({
@@ -38,7 +38,12 @@ async function createUser({ user_id, date_created, active }) {
   }
 }
 
-async function saveChat({ chat_id, date_created, deleted_bool, content }) {
+export async function saveChat({
+  chat_id,
+  date_created,
+  deleted_bool,
+  content,
+}) {
   try {
     const chatsCollection = connectedDb.collection("chats");
     await chatsCollection.updateOne(
@@ -57,9 +62,6 @@ async function saveChat({ chat_id, date_created, deleted_bool, content }) {
   }
 }
 
-module.exports = {
-  connectDB,
-  saveChat,
-  createUser,
-  getDb: () => connectedDb,
-};
+export function getDb() {
+  return connectedDb;
+}

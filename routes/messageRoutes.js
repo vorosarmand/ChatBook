@@ -1,10 +1,11 @@
-const { requiresAuth } = require("express-openid-connect");
-const { getDb, saveChat } = require("../db/db");
-const { openai, pusherConfig: pusher } = require("../config/config");
+import pkg from "express-openid-connect";
+const { requiresAuth } = pkg;
+import { getDb, saveChat } from "../db/db.js";
+import { openai, pusherConfig } from "../config/config.js";
 
 let conversationHistories = new Map();
 
-const setupMessageRoutes = (app) => {
+export const setupMessageRoutes = (app) => {
   app.post("/send-message", requiresAuth(), async (req, res) => {
     const { message, conversationId } = req.body;
     req.body = JSON.parse(JSON.stringify(req.body));
@@ -118,5 +119,3 @@ const setupMessageRoutes = (app) => {
     }
   });
 };
-
-module.exports = { setupMessageRoutes };

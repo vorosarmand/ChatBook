@@ -1,8 +1,8 @@
-require("dotenv").config();
-const { Configuration, OpenAIApi } = require("openai");
-const Pusher = require("pusher");
+//require("dotenv").config();
+import { Configuration, OpenAIApi } from "openai";
+import Pusher from "pusher";
 
-const authConfig = {
+export const authConfig = {
   authRequired: false,
   auth0Logout: true,
   secret: process.env.SESSION_SECRET,
@@ -11,7 +11,7 @@ const authConfig = {
   issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
 };
 
-const pusherConfig = new Pusher({
+export const pusherConfig = new Pusher({
   appId: process.env.PUSHER_APP_ID,
   key: process.env.PUSHER_KEY,
   secret: process.env.PUSHER_SECRET,
@@ -19,13 +19,7 @@ const pusherConfig = new Pusher({
   useTLS: true,
 });
 
-const openaiConfig = new Configuration({
+export const openaiConfig = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(openaiConfig);
-
-module.exports = {
-  authConfig,
-  pusherConfig,
-  openai,
-};
+export const openai = new OpenAIApi(openaiConfig);

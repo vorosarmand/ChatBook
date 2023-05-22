@@ -1,9 +1,10 @@
-const { requiresAuth } = require("express-openid-connect");
-const { getDb } = require("../db/db");
+import pkg from "express-openid-connect";
+const { requiresAuth } = pkg;
+import { getDb } from "../db/db.js";
 
 let conversationHistories = new Map();
 
-const setupChatRoutes = (app) => {
+export const setupChatRoutes = (app) => {
   app.get(
     "/api/chat-history/:conversationId",
     requiresAuth(),
@@ -33,8 +34,4 @@ const setupChatRoutes = (app) => {
       }
     }
   );
-};
-
-module.exports = {
-  setupChatRoutes,
 };
